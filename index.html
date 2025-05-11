@@ -12,31 +12,50 @@
       margin: 30px;
       font-size: 16px;
     }
-    table { border-collapse: collapse; margin-top: 20px; }
-    td, th { border: 1px solid #ccc; padding: 8px 12px; }
-    input, select { width: 140px; }
-    .log-table { margin-top: 40px; }
+
+    table {
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    td, th {
+      border: 1px solid #ccc;
+      padding: 8px 12px;
+    }
+
+    input, select {
+      width: 140px;
+    }
+
+    .log-table {
+      margin-top: 40px;
+    }
 
     @media (max-width: 600px) {
       body {
         margin: 10px;
         font-size: 15px;
       }
+
       table, th, td {
         font-size: 14px;
       }
+
       input, select, button {
         width: 100% !important;
         box-sizing: border-box;
       }
+
       table {
         display: block;
         overflow-x: auto;
         white-space: nowrap;
       }
+
       .log-table th, .log-table td {
         padding: 6px 10px;
       }
+
       h3 {
         font-size: 18px;
       }
@@ -51,33 +70,44 @@
 
   <form onsubmit="runCheck(); return false;">
     <table>
-      <tr><td>Enter DUT Range:</td>
-          <td><input type="number" id="dutRange" value="10" /></td>
+      <tr>
+        <td>Enter DUT Range:</td>
+        <td><input type="number" id="dutRange" value="10" /></td>
       </tr>
-      <tr><td>Enter DUT Accuracy:</td>
-          <td>
-            <input type="number" id="dutAccuracy" step="0.0001" value="1" />
+      <tr>
+        <td>Enter DUT Accuracy:</td>
+        <td>
+          <div style="display: flex; flex-direction: column; width: 100%;">
+            <input type="number" id="dutAccuracy" step="0.0001" value="1" style="margin-bottom: 8px;" />
             <select id="accuracyMode">
               <option value="FS" selected>% FS</option>
               <option value="Reading">% of Reading</option>
             </select>
-          </td>
+          </div>
+        </td>
       </tr>
-      <tr><td>Select Unit:</td>
-          <td>
-            <select id="unitSelect">
-              <option value="psi" selected>psi</option>
-              <option value="inH2O">inH₂O (20°C)</option>
-              <option value="inHg">inHg (0°C)</option>
-              <option value="kPa">kPa</option>
-              <option value="Pa">Pa</option>
-              <option value="bar">bar</option>
-              <option value="Torr">Torr</option>
-            </select>
-          </td>
+      <tr>
+        <td>Select Unit:</td>
+        <td>
+          <select id="unitSelect">
+            <option value="psi" selected>psi</option>
+            <option value="inH2O">inH₂O (20°C)</option>
+            <option value="inHg">inHg (0°C)</option>
+            <option value="kPa">kPa</option>
+            <option value="Pa">Pa</option>
+            <option value="bar">bar</option>
+            <option value="Torr">Torr</option>
+          </select>
+        </td>
       </tr>
-      <tr><td>Our best accuracy in this range</td><td id="labAccuracy">-<br><small style='color:#666'>(at 20% & 100% of FS if using % of Reading)</small></td></tr>
-      <tr><td>TUR (Test Uncertainty Ratio)</td><td id="turValue">-</td></tr>
+      <tr>
+        <td>Our best accuracy in this range</td>
+        <td id="labAccuracy">-<br><small style='color:#666'>(at 20% & 100% of FS if using % of Reading)</small></td>
+      </tr>
+      <tr>
+        <td>TUR (Test Uncertainty Ratio)</td>
+        <td id="turValue">-</td>
+      </tr>
       <tr><td>Can we do it at 4:1?</td><td id="can4">-</td></tr>
       <tr><td>Can we do it at 3:1?</td><td id="can3">-</td></tr>
       <tr><td>Can we do it at 2:1?</td><td id="can2">-</td></tr>
@@ -104,24 +134,24 @@
 
   <script>
     const unitToPsi = {
-      "psi":   1,
+      "psi": 1,
       "inH2O": 0.036127,
-      "inHg":  0.491154,
-      "kPa":   0.1450377,
-      "Pa":    0.0001450377,
-      "bar":   14.50377,
-      "Torr":  0.0193368
+      "inHg": 0.491154,
+      "kPa": 0.1450377,
+      "Pa": 0.0001450377,
+      "bar": 14.50377,
+      "Torr": 0.0193368
     };
 
     const cmcTable = [
-      { minPsi: -13,    maxPsi: 0,     floor: 0.002291, gain: 0.0080 },
-      { minPsi: 0,      maxPsi: 50,    floor: 0.002291, gain: 0.0066 },
-      { minPsi: 50,     maxPsi: 500,   floor: 0.029806, gain: 0.0045 },
-      { minPsi: 500,    maxPsi: 1015,  floor: 0.021885, gain: 0.0395 },
-      { minPsi: 1015,   maxPsi: 3000,  floor: 0.182564, gain: 0.0048 },
-      { minPsi: 3000,   maxPsi: 10152, floor: 0.218854, gain: 0.0184 },
-      { minPsi: 10152,  maxPsi: 30000, floor: 30.011109, gain: 0.0052 },
-      { minPsi: -3.6127,  maxPsi: 3.6127,  floor: 0.045955 * 0.036127, gain: 0 },
+      { minPsi: -13, maxPsi: 0, floor: 0.002291, gain: 0.0080 },
+      { minPsi: 0, maxPsi: 50, floor: 0.002291, gain: 0.0066 },
+      { minPsi: 50, maxPsi: 500, floor: 0.029806, gain: 0.0045 },
+      { minPsi: 500, maxPsi: 1015, floor: 0.021885, gain: 0.0395 },
+      { minPsi: 1015, maxPsi: 3000, floor: 0.182564, gain: 0.0048 },
+      { minPsi: 3000, maxPsi: 10152, floor: 0.218854, gain: 0.0184 },
+      { minPsi: 10152, maxPsi: 30000, floor: 30.011109, gain: 0.0052 },
+      { minPsi: -3.6127, maxPsi: 3.6127, floor: 0.045955 * 0.036127, gain: 0 },
       { minPsi: -0.36127, maxPsi: 0.36127, floor: 0.010253 * 0.036127, gain: 0 },
       { minPsi: -0.036127, maxPsi: 0.036127, floor: 0.001025 * 0.036127, gain: 0 }
     ];
