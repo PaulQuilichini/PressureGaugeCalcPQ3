@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temperature Probe & Bath TUR Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: "Open Sans", Helvetica, Arial, sans-serif;
+      color: #1c1c1c;
+      background-color: #ffffff;
+      margin: 30px;
+      font-size: 16px;
+    }
+    table {
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    td, th {
+      border: 1px solid #ccc;
+      padding: 8px 12px;
+    }
+    input, select {
+      width: 140px;
+    }
+    .log-table {
+      margin-top: 40px;
+    }
+    .highlight-fail {
+      background-color: #ffdddd;
+    }
+  </style>
+</head>
+<body style="margin: 0;">
+  <div style="background-color: #001e44; padding: 30px 20px 20px 20px; text-align: left; width: 100%; box-sizing: border-box;">
+    <img src="https://bhdtm.com/cdn/shop/files/BHDTM_tiny_logo_web-08_890x400.png?v=1619044461" alt="Company Logo" style="height: 104px; display: block;" />
+    <div style="color: white; font-weight: 600; font-size: 16.8px; margin-top: 16px;">Temperature Probe & Bath TUR Calculator</div>
+  </div>
+
+  <form onsubmit="runCheck(); return false;">
+    <table>
+      <tr>
+        <td>Probe Bottom Range (°C):</td>
+        <td><input type="number" id="rangeBottom" value="-50"></td>
+      </tr>
+      <tr>
+        <td>Probe Top Range (°C):</td>
+        <td><input type="number" id="rangeTop" value="150"></td>
+      </tr>
+      <tr>
+        <td>Accuracy Class:</td>
+        <td>
+          <select id="accuracyClass" onchange="toggleCustom()">
+            <option value="IEC_A">IEC 60751 Class A</option>
+            <option value="IEC_B">IEC 60751 Class B</option>
+            <option value="ASTM_01">ASTM E2877 Grade 0.1</option>
+            <option value="ASTM_025">ASTM E2877 Grade 0.25</option>
+            <option value="ASTM_05">ASTM E2877 Grade 0.5</option>
+            <option value="custom">Custom Accuracy</option>
+          </select>
+        </td>
+      </tr>
+      <tr id="customRow" style="display:none">
+        <td>Custom Accuracy (°C):</td>
+        <td><input type="number" id="customAcc" step="0.0001" value="0.1"></td>
+      </tr>
+      <tr>
+        <td>Our best accuracy at midpoint</td>
+        <td id="labAccuracy">-</td>
+      </tr>
+      <tr>
+        <td>TUR (Test Uncertainty Ratio)</td>
+        <td id="turValue">-</td>
+      </tr>
+      <tr><td>Can we do it at 4:1?</td><td id="can4">-</td></tr>
+      <tr><td>Can we do it at 3:1?</td><td id="can3">-</td></tr>
+      <tr><td>Can we do it at 2:1?</td><td id="can2">-</td></tr>
+    </table>
+    <button style="margin-top:20px" type="submit">Check</button>
+  </form>
+
+  <h3>Result Log</h3>
+  <table class="log-table" id="resultLog">
+    <thead>
+      <tr>
+        <th>Range</th>
+        <th>Accuracy Class</th>
+        <th>DUT Tol</th>
+        <th>Lab Uncertainty</th>
+        <th>TUR</th>
+        <th>≥4:1</th>
+        <th>≥3:1</th>
+        <th>≥2:1</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const classAccuracy = {
+        IEC_A: t => 0.15 + 0.002 * Math.abs(t),
+        IEC_B: t => 0.3 + 0.005 * Math.abs(t),
+        ASTM_01: function() { return 0.1; },
+        ASTM_025: function() { return 0.25; },
+        ASTM_05: function() { return 0.5; }
+      };
+
+      const classLabels = {
+        IEC_A: "IEC 60751 Class A",
+        IEC_B: "IEC 60751 Class B",
+        ASTM_01: "ASTM E2877 Grade 0.1",
+        ASTM_025: "ASTM E2877 Grade 0.25",
+        ASTM_05: "ASTM E2877 Grade 0.5",
+        custom: "Custom"
+      };
+
+      const labCMC = [
+        { min: -90, max: -39, value: 0.018 },
+        { min: -39, max: 0.01, value: 0.016 },
+        { min: 0.01, max: 232, value: 0.017 },
+        { min: 232, max: 420, value: 0.023 },
+        { min: 420, max: 660, value: 0.033 }
+      ];
+
+      function getClosestCMC(temp) {
+        for (let range of labCMC) {
+          if (temp >= range.min && temp < range.max) return range.value;
+        }
+        return labCMC[labCMC.length - 1].value;
+      }
+
+      window.toggleCustom = function () {
+        const isCustom = document.getElementById("accuracyClass").value === "custom";
+        document.getElementById("customRow").style.display = isCustom ? "table-row" : "none";
+      };
+
+      window.runCheck = function () {
+        const isCustom = document.getElementById("accuracyClass").value === "custom";
+        document.getElementById("customRow").style.display = isCustom ? "table-row" : "none";
+      };
+
+      window.runCheck = function () {
+        const rangeBottom = parseFloat(document.getElementById("rangeBottom").value);
+        const rangeTop = parseFloat(document.getElementById("rangeTop").value);
+        const accuracyClass = document.getElementById("accuracyClass").value;
+        const customAcc = parseFloat(document.getElementById("customAcc").value);
+
+        if (isNaN(rangeBottom) || isNaN(rangeTop) || (accuracyClass === 'custom' && isNaN(customAcc))) {
+          alert("Please enter all values correctly.");
+          return;
+        }
+
+        const dutTolBottom = (accuracyClass === 'custom') ? customAcc : classAccuracy[accuracyClass](rangeBottom);
+        const dutTolTop = (accuracyClass === 'custom') ? customAcc : classAccuracy[accuracyClass](rangeTop);
+
+        const labUncertaintyBottom = getClosestCMC(rangeBottom);
+        const labUncertaintyTop = getClosestCMC(rangeTop);
+
+        const turBottom = dutTolBottom / labUncertaintyBottom;
+        const turTop = dutTolTop / labUncertaintyTop;
+
+        const worstTUR = Math.min(turBottom, turTop);
+        const worstUncertainty = (worstTUR === turBottom) ? labUncertaintyBottom : labUncertaintyTop;
+
+        document.getElementById("labAccuracy").innerText = `Bottom: ${labUncertaintyBottom.toFixed(3)} °C, Top: ${labUncertaintyTop.toFixed(3)} °C`;
+        document.getElementById("turValue").innerHTML = `Worst TUR = ${worstTUR.toFixed(2)}:1<br><small>Bottom: ±${dutTolBottom.toFixed(3)} °C → TUR ${turBottom.toFixed(2)}:1<br>Top: ±${dutTolTop.toFixed(3)} °C → TUR ${turTop.toFixed(2)}:1</small>`;
+        document.getElementById("can4").innerText = (worstTUR >= 4) ? "✅ YES" : "❌ NO";
+        document.getElementById("can3").innerText = (worstTUR >= 3) ? "✅ YES" : "❌ NO";
+        document.getElementById("can2").innerText = (worstTUR >= 2) ? "✅ YES" : "❌ NO";
+
+        const log = document.getElementById("resultLog").querySelector("tbody");
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${rangeBottom}–${rangeTop}</td>
+          <td>${classLabels[accuracyClass]}</td>
+          <td>±${worstTUR === turBottom ? dutTolBottom.toFixed(3) : dutTolTop.toFixed(3)} °C</td>
+          <td>${worstUncertainty.toFixed(3)} °C</td>
+          <td>${worstTUR.toFixed(2)}:1</td>
+          <td>${(worstTUR >= 4) ? "✅ YES" : "❌ NO"}</td>
+          <td>${(worstTUR >= 3) ? "✅ YES" : "❌ NO"}</td>
+          <td>${(worstTUR >= 2) ? "✅ YES" : "❌ NO"}</td>
+        `;
+        if (worstTUR < 2) row.classList.add("highlight-fail");
+        log.appendChild(row);
+        document.getElementById("resultLog").scrollIntoView({ behavior: "smooth" });
+      };
+
+      toggleCustom();
+
+      
+    });
+  </script>
+</body>
+</html>
