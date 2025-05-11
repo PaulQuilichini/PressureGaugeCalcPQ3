@@ -1,0 +1,188 @@
+<!-- Full corrected code -->
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <title>Pressure Calibration Capability Checker</title>
+  <style>
+    body {
+      font-family: "Open Sans", Helvetica, Arial, sans-serif;
+      color: #1c1c1c;
+      background-color: #ffffff;
+      margin: 30px;
+      font-size: 16px;
+    }
+    table { border-collapse: collapse; margin-top: 20px; }
+    td, th { border: 1px solid #ccc; padding: 8px 12px; }
+    input, select { width: 140px; }
+    .log-table { margin-top: 40px; }
+  </style>
+</head>
+<body style="margin: 0;">
+  <div style="background-color: #001e44; padding: 30px 20px 20px 20px; text-align: left; width: 100%; box-sizing: border-box;">
+    <img src="https://bhdtm.com/cdn/shop/files/BHDTM_tiny_logo_web-08_890x400.png?v=1619044461" alt="Company Logo" style="height: 104px; display: block;" />
+    <div style="color: white; font-weight: 600; font-size: 16.8px; margin-top: 16px;">Pressure Calibration Capability Checker</div>
+  </div>
+    <form onsubmit="runCheck(); return false;">
+    <table>
+      <tr><td>Enter DUT Range:</td>
+          <td><input type="number" id="dutRange" value="10" /></td>
+      </tr>
+      <tr><td>Enter DUT Accuracy:</td>
+          <td>
+            <input type="number" id="dutAccuracy" step="0.0001" value="1" />
+            <select id="accuracyMode">
+              <option value="FS" selected>% FS</option>
+              <option value="Reading">% of Reading</option>
+            </select>
+          </td>
+      </tr>
+      <tr><td>Select Unit:</td>
+          <td>
+            <select id="unitSelect">
+              <option value="psi" selected>psi</option>
+              <option value="inH2O">inH₂O (20°C)</option>
+              <option value="inHg">inHg (0°C)</option>
+              <option value="kPa">kPa</option>
+              <option value="Pa">Pa</option>
+              <option value="bar">bar</option>
+              <option value="Torr">Torr</option>
+            </select>
+          </td>
+      </tr>
+      <tr><td>Our best accuracy in this range</td><td id="labAccuracy">-<br><small style='color:#666'>(at 20% of FS if using % of Reading)</small></td></tr>
+      <tr><td>TUR (Test Uncertainty Ratio)</td><td id="turValue">-</td></tr>
+      <tr><td>Can we do it at 4:1?</td><td id="can4">-</td></tr>
+      <tr><td>Can we do it at 3:1?</td><td id="can3">-</td></tr>
+      <tr><td>Can we do it at 2:1?</td><td id="can2">-</td></tr>
+          </table>
+    <button style="margin-top:20px" type="submit">Check</button>
+  </form>
+
+  <h3>Result Log</h3>
+  <table class="log-table" id="resultLog">
+    <thead>
+      <tr>
+        <th>DUT Range</th>
+        <th>Unit</th>
+        <th>DUT Accuracy (%)</th>
+        <th>Lab Uncertainty</th>
+        <th>TUR</th>
+        <th>≥4:1</th>
+        <th>≥3:1</th>
+        <th>≥2:1</th>
+        
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const unitToPsi = {
+      "psi":   1,
+      "inH2O": 0.036127,
+      "inHg":  0.491154,
+      "kPa":   0.1450377,
+      "Pa":    0.0001450377,
+      "bar":   14.50377,
+      "Torr":  0.0193368
+    };
+
+    const cmcTable = [
+      { minPsi: -13,    maxPsi: 0,     floor: 0.002291, gain: 0.0080 },
+      { minPsi: 0,      maxPsi: 50,    floor: 0.002291, gain: 0.0066 },
+      { minPsi: 50,     maxPsi: 500,   floor: 0.029806, gain: 0.0045 },
+      { minPsi: 500,    maxPsi: 1015,  floor: 0.021885, gain: 0.0395 },
+      { minPsi: 1015,   maxPsi: 3000,  floor: 0.182564, gain: 0.0048 },
+      { minPsi: 3000,   maxPsi: 10152, floor: 0.218854, gain: 0.0184 },
+      { minPsi: 10152,  maxPsi: 30000, floor: 30.011109, gain: 0.0052 },
+      { minPsi: -3.6127,  maxPsi: 3.6127,  floor: 0.045955 * 0.036127, gain: 0 },
+      { minPsi: -0.36127, maxPsi: 0.36127, floor: 0.010253 * 0.036127, gain: 0 },
+      { minPsi: -0.036127, maxPsi: 0.036127, floor: 0.001025 * 0.036127, gain: 0 }
+    ];
+
+    function getBestCMC(psiValue, originalValue, unit) {
+      // Prioritize raw inH2O ranges first by original value
+      if (unit === "inH2O") {
+        if (originalValue >= -1 && originalValue <= 1) {
+          return 0.0010 * unitToPsi["inH2O"];
+        } else if (originalValue >= -10 && originalValue <= 10) {
+          return 0.0100 * unitToPsi["inH2O"];
+        } else if (originalValue >= -100 && originalValue <= 100) {
+          return 0.0500 * unitToPsi["inH2O"];
+        }
+      }
+      for (let row of cmcTable) {
+        if (psiValue >= row.minPsi && psiValue <= row.maxPsi) {
+          return row.floor + (row.gain / 100) * psiValue;
+        }
+      }
+      return null;
+    }
+
+    function runCheck() {
+      const dutRange = parseFloat(document.getElementById("dutRange").value);
+      const dutAccuracyPct = parseFloat(document.getElementById("dutAccuracy").value);
+      const unit = document.getElementById("unitSelect").value;
+
+      if (isNaN(dutRange) || isNaN(dutAccuracyPct)) {
+        alert("Please enter valid numbers.");
+        return;
+      }
+
+      const dutRangePsi = dutRange * unitToPsi[unit];
+      const accuracyMode = document.getElementById("accuracyMode").value;
+      const testPressurePsi = (accuracyMode === "Reading") ? (dutRangePsi * 0.2) : null;
+      const tolerancePsi = (accuracyMode === "FS")
+        ? dutRangePsi * dutAccuracyPct / 100
+        : (dutRangePsi * 0.2) * dutAccuracyPct / 100;
+      const testPointPsi = (accuracyMode === "Reading") ? dutRangePsi * 0.2 : dutRangePsi;
+      const testPointRaw = (accuracyMode === "Reading") ? dutRange * 0.2 : dutRange;
+      const labUncertaintyPsi = getBestCMC(testPointPsi, testPointRaw, unit);
+
+      let labText = "-";
+let cmcExpression = "";
+      let turText = "-";
+      let tur = 0;
+      let pass4 = "-";
+      let pass3 = "-";
+      let pass2 = "-";
+      
+      if (labUncertaintyPsi !== null) {
+        tur = tolerancePsi / labUncertaintyPsi;
+        const cmcRow = cmcTable.find(row => testPointPsi >= row.minPsi && testPointPsi <= row.maxPsi);
+        if (cmcRow) {
+          cmcExpression = `${Number(cmcRow.floor).toPrecision(2)} psi + ${Number(cmcRow.gain).toPrecision(2)}%`;
+          labText = cmcExpression;
+        } else {
+          labText = labUncertaintyPsi.toFixed(5) + " psi";
+        }
+        turText = "TUR = " + tur.toFixed(2) + " : 1";
+        pass4 = (tur >= 4) ? "✅ YES" : "❌ NO";
+        pass3 = (tur >= 3) ? "✅ YES" : "❌ NO";
+        pass2 = (tur >= 2) ? "✅ YES" : "❌ NO";
+              }
+
+      document.getElementById("labAccuracy").innerText = labText;
+      document.getElementById("turValue").innerText = turText;
+      document.getElementById("can4").innerText = pass4;
+      document.getElementById("can3").innerText = pass3;
+      document.getElementById("can2").innerText = pass2;
+      
+      const log = document.getElementById("resultLog").querySelector("tbody");
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${dutRange}</td>
+        <td>${unit}</td>
+        <td>${dutAccuracyPct}</td>
+        <td>${labText}</td>
+        <td>${labUncertaintyPsi ? "TUR = " + tur.toFixed(2) + " : 1" : "-"}</td>
+        <td>${pass4}</td>
+        <td>${pass3}</td>
+        <td>${pass2}</td>
+              `;
+      log.appendChild(row);
+    }
+  </script>
+</body>
+</html>
