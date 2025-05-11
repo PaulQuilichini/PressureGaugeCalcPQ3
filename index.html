@@ -12,53 +12,25 @@
       margin: 30px;
       font-size: 16px;
     }
-
     table {
       border-collapse: collapse;
       margin-top: 20px;
     }
-
     td, th {
       border: 1px solid #ccc;
       padding: 8px 12px;
     }
-
     input, select {
       width: 140px;
     }
-
     .log-table {
       margin-top: 40px;
     }
-
-    @media (max-width: 600px) {
-      body {
-        margin: 10px;
-        font-size: 15px;
-      }
-
-      table, th, td {
-        font-size: 14px;
-      }
-
-      input, select, button {
-        width: 100% !important;
-        box-sizing: border-box;
-      }
-
-      table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-      }
-
-      .log-table th, .log-table td {
-        padding: 6px 10px;
-      }
-
-      h3 {
-        font-size: 18px;
-      }
+    .highlight-fail {
+      background-color: #ffdddd;
+    }
+    .highlight-warning {
+      background-color: #fff4cc;
     }
   </style>
 </head>
@@ -68,51 +40,40 @@
     <div style="color: white; font-weight: 600; font-size: 16.8px; margin-top: 16px;">Pressure Calibration Capability Checker</div>
   </div>
 
-  <form onsubmit="runCheck(); return false;">
+  <div id="warningBanner" style="display:none; margin-top:15px; padding:10px; background-color:#fff4cc; border:1px solid #e6c200; color:#7a5c00; font-weight:bold; font-size:15px;">
+    ⚠️ Warning: TUR is close to the lower bound!
+  </div>
+
+  <form id="calcForm">
     <table>
-      <tr>
-        <td>Enter DUT Range:</td>
-        <td><input type="number" id="dutRange" value="10" /></td>
-      </tr>
-      <tr>
-        <td>Enter DUT Accuracy:</td>
-        <td>
-          <div style="display: flex; flex-direction: column; width: 100%;">
-            <input type="number" id="dutAccuracy" step="0.0001" value="1" style="margin-bottom: 8px;" />
-            <select id="accuracyMode">
-              <option value="FS" selected>% FS</option>
-              <option value="Reading">% of Reading</option>
-            </select>
-          </div>
-        </td>
-      </tr>
-      <tr>
-        <td>Select Unit:</td>
-        <td>
-          <select id="unitSelect">
-            <option value="psi" selected>psi</option>
-            <option value="inH2O">inH₂O (20°C)</option>
-            <option value="inHg">inHg (0°C)</option>
-            <option value="kPa">kPa</option>
-            <option value="Pa">Pa</option>
-            <option value="bar">bar</option>
-            <option value="Torr">Torr</option>
+      <tr><td>Enter DUT Range:</td><td><input type="number" id="dutRange" value="10" /></td></tr>
+      <tr><td>Enter DUT Accuracy:</td><td>
+        <div style="display: flex; flex-direction: column; width: 100%;">
+          <input type="number" id="dutAccuracy" step="0.0001" value="1" style="margin-bottom: 8px;" />
+          <select id="accuracyMode">
+            <option value="FS" selected>% FS</option>
+            <option value="Reading">% of Reading</option>
           </select>
-        </td>
-      </tr>
-      <tr>
-        <td>Our best accuracy in this range</td>
-        <td id="labAccuracy">-<br><small style='color:#666'>(at 20% & 100% of FS if using % of Reading)</small></td>
-      </tr>
-      <tr>
-        <td>TUR (Test Uncertainty Ratio)</td>
-        <td id="turValue">-</td>
-      </tr>
+        </div>
+      </td></tr>
+      <tr><td>Select Unit:</td><td>
+        <select id="unitSelect">
+          <option value="psi" selected>psi</option>
+          <option value="inH2O">inH₂O (20°C)</option>
+          <option value="inHg">inHg (0°C)</option>
+          <option value="kPa">kPa</option>
+          <option value="Pa">Pa</option>
+          <option value="bar">bar</option>
+          <option value="Torr">Torr</option>
+        </select>
+      </td></tr>
+      <tr><td>Our best accuracy in this range</td><td id="labAccuracy">-<br><small style='color:#666'>(at 20% & 100% of FS if using % of Reading)</small></td></tr>
+      <tr><td>TUR (Test Uncertainty Ratio)</td><td id="turValue">-</td></tr>
       <tr><td>Can we do it at 4:1?</td><td id="can4">-</td></tr>
       <tr><td>Can we do it at 3:1?</td><td id="can3">-</td></tr>
       <tr><td>Can we do it at 2:1?</td><td id="can2">-</td></tr>
+      <tr><td colspan="2" style="padding-top: 10px;"><button type="submit">Check</button></td></tr>
     </table>
-    <button style="margin-top:20px" type="submit">Check</button>
   </form>
 
   <h3>Result Log</h3>
@@ -212,11 +173,10 @@
           labUncertaintyPsi = cmc;
           worstLabel = labels[i];
         }
-
         turValues.push(tur);
       }
 
-      const gainWarning = (worstTUR < 2.5) ? "<br><small style='color:#c00'>⚠ TUR close to lower bound</small>" : "";
+      const gainWarning = "";
       const toleranceDisplay = "<br><small style='color:#666'>Worst case: " + worstLabel + " of FS</small>";
 
       document.getElementById("labAccuracy").innerHTML = labUncertaintyPsi ? labUncertaintyPsi.toFixed(5) + " psi" : "-";
@@ -237,9 +197,26 @@
         <td>${(worstTUR >= 3) ? "✅ YES" : "❌ NO"}</td>
         <td>${(worstTUR >= 2) ? "✅ YES" : "❌ NO"}</td>
       `;
+      if (worstTUR < 2) {
+        row.classList.add("highlight-fail");
+        document.getElementById("warningBanner").style.display = "none";
+      } else if (worstTUR < 2.5) {
+        row.classList.add("highlight-warning");
+        document.getElementById("warningBanner").style.display = "block";
+      } else {
+        document.getElementById("warningBanner").style.display = "none";
+      }
+
       log.appendChild(row);
       document.getElementById("resultLog").scrollIntoView({ behavior: "smooth" });
     }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      document.getElementById("calcForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        runCheck();
+      });
+    });
   </script>
 </body>
 </html>
