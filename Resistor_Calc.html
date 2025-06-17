@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>PQ's Resistor Combo Finder</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 2em;
+      max-width: 600px;
+      background-color: rgb(206, 215, 248);
+      margin: auto;
+    }
+
+    input {
+      margin-bottom: 1em;
+      padding: 0.5em;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 0.2em;
+      width: 20%;
+      font-size: 1em;
+      border-radius: 1em;
+      pointer-events: all;
+      border-style: groove;
+      box-shadow: inset;
+      background-color: rgb(201, 201, 201);
+      color: rgb(0, 23, 43);
+      font-weight: 100;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    .result {
+      margin-top: 1em;
+      background: rgb(206, 215, 248);
+      padding: 1em;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>The Handy Dandy Resistor Finder</h1>
+  <label for="target">Target Resistance (input number followed by k/M, if required)</label>
+  <input type="text" id="target" placeholder="e.g. 820, 2.2k, 1M">
+
+  <label for="tolerance">Tolerance (% of Target)</label>
+  <input type="number" value="1" id="tolerance" placeholder="e.g. 1 for 1%">
+
+  <button onclick="findCombo()">Find Best Match</button>
+
+  <div class="result" id="result"></div>
+
+  <script>
+    const resistors = [
+      11,
+      11.3,
+      11.5,
+      12.1,
+      12.7,
+      13.3,
+      14,
+      14.7,
+      15,
+      15.4,
+      16.5,
+      16.9,
+      17.8,
+      18.2,
+      18.7,
+      19.6,
+      20,
+      20.5,
+      21.5,
+      22.1,
+      22.6,
+      23.7,
+      24.3,
+      24.9,
+      26.1,
+      28.7,
+      30.1,
+      33.2,
+      35.7,
+      39.2,
+      40.2,
+      42.2,
+      45.3,
+      46.4,
+      51.1,
+      53.6,
+      54.9,
+      56.2,
+      60.4,
+      61.9,
+      62.5,
+      64.9,
+      68.1,
+      71.5,
+      75,
+      78.7,
+      80.6,
+      82.5,
+      90.9,
+      100,
+      107,
+      121,
+      124,
+      133,
+      150,
+      162,
+      174,
+      200,
+      205,
+      215,
+      226,
+      243,
+      249,
+      274,
+      287,
+      301,
+      324,
+      348,
+      374,
+      402,
+      422,
+      453,
+      475,
+      499,
+      549,
+      604,
+      649,
+      681,
+      698,
+      715,
+      732,
+      750,
+      806,
+      845,
+      909,
+      953,
+      1000,
+      1100,
+      1200,
+      1300,
+      1330,
+      1400,
+      1470,
+      1500,
+      1620,
+      1740,
+      1780,
+      1820,
+      1870,
+      2000,
+      2200,
+      2260,
+      2320,
+      2370,
+      2430,
+      2490,
+      2550,
+      2670,
+      2740,
+      2800,
+      2940,
+      3010,
+      3310,
+      3320,
+      3650,
+      3900,
+      3920,
+      4320,
+      4530,
+      4990,
+      5490,
+      6040,
+      6980,
+      7500,
+      8060,
+      8450,
+      9090,
+      10000,
+      12100,
+      13000,
+      14000,
+      15000,
+      15800,
+      16900,
+      17800,
+      19100,
+      20000,
+      21000,
+      22100,
+      22600,
+      23200,
+      23700,
+      24900,
+      25500,
+      26100,
+      28000,
+      28700,
+      30100,
+      30900,
+      31600,
+      36500,
+      37400,
+      40200,
+      45300,
+      47500,
+      49900,
+      53600,
+      54900,
+      60400,
+      61900,
+      69800,
+      71500,
+      75000,
+      80600,
+      82500,
+      84500,
+      90900,
+      100000,
+      102000,
+      105000,
+      107000,
+      110000,
+      113000,
+      115000,
+      118000,
+      121000,
+      124000,
+      127000,
+      130000,
+      133000,
+      137000,
+      140000,
+      147000,
+      150000,
+      154000,
+      158000,
+      162000,
+      165000,
+      169000,
+      174000,
+      176000,
+      182000,
+      187000,
+      191000,
+      196000,
+      200000,
+      205000,
+      210000,
+      215000,
+      221000,
+      226000,
+      232000,
+      237000,
+      241000,
+      243000,
+      246000,
+      249000,
+      255000,
+      261000,
+      267000,
+      274000,
+      301000,
+      316000,
+      332000,
+      348000,
+      357000,
+      383000,
+      411000,
+      432000,
+      442000,
+      1000000,
+      2000000,
+      3010000,
+      3920000,
+      5110000,
+      6810000,
+      7500000,
+      9760000,
+      10000000,
+      16500000
+    ];
+
+    function parseResistance(input) {
+      input = input.trim().toUpperCase();
+      if (input.endsWith("K")) {
+        return parseFloat(input.replace("K", "")) * 1000;
+      } else if (input.endsWith("M")) {
+        return parseFloat(input.replace("M", "")) * 1000000;
+      } else {
+        return parseFloat(input);
+      }
+    }
+
+    function formatResistance(value) {
+      if (value >= 1_000_000) {
+        return +(value / 1_000_000).toFixed(3).replace(/\.0+$/, "") + " MΩ";
+      } else if (value >= 1_000) {
+        return +(value / 1_000).toFixed(3).replace(/\.0+$/, "") + " kΩ";
+      } else {
+        return +value.toFixed(2).replace(/\.0+$/, "") + " Ω";
+      }
+    }
+
+    function findCombo() {
+      const targetInput = document.getElementById("target").value;
+      const target = parseResistance(targetInput);
+      const tolerancePercent = parseFloat(document.getElementById("tolerance").value);
+      const tolerance = target * (tolerancePercent / 100);
+      const min = target - tolerance;
+      const max = target + tolerance;
+
+      let bestMatch = null;
+      let bestSum = Infinity;
+
+      // Try 1 resistor
+      for (let i = 0; i < resistors.length; i++) {
+        const r1 = resistors[i];
+        if (r1 >= min && r1 <= max) {
+          bestMatch = [r1];
+          bestSum = r1;
+          break; // Stop here — 1-resistor match is best possible
+        }
+      }
+
+      // Try 2 resistors if no 1-resistor match found
+      if (!bestMatch) {
+        for (let i = 0; i < resistors.length; i++) {
+          const r1 = resistors[i];
+          for (let j = i + 1; j < resistors.length; j++) {
+            const r2 = resistors[j];
+            const sum2 = r1 + r2;
+            if (sum2 >= min && sum2 <= max) {
+              bestMatch = [r1, r2];
+              bestSum = sum2;
+              break;
+            }
+          }
+          if (bestMatch) break;
+        }
+      }
+
+      // Try 3 resistors if no 1- or 2-resistor match found
+      if (!bestMatch) {
+        for (let i = 0; i < resistors.length; i++) {
+          const r1 = resistors[i];
+          for (let j = i + 1; j < resistors.length; j++) {
+            const r2 = resistors[j];
+            for (let k = j + 1; k < resistors.length; k++) {
+              const r3 = resistors[k];
+              const sum3 = r1 + r2 + r3;
+              if (sum3 >= min && sum3 <= max) {
+                bestMatch = [r1, r2, r3];
+                bestSum = sum3;
+                break;
+              }
+            }
+            if (bestMatch) break;
+          }
+          if (bestMatch) break;
+        }
+      }
+
+      const resultDiv = document.getElementById("result");
+      if (bestMatch) {
+        const formattedCombo = bestMatch.map(formatResistance).join(" + ");
+        resultDiv.innerHTML = `<strong>Best match:</strong> ${formattedCombo} = ${formatResistance(bestSum)}<br>` +
+          `<em>(${bestSum.toFixed(2)} Ω raw)</em>`;
+      } else {
+        resultDiv.innerHTML = "<strong>No combination found within tolerance.</strong>";
+      }
+    }
+
+  </script>
+</body>
+
+</html>
